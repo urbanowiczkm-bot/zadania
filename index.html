@@ -295,7 +295,7 @@ textarea.input { min-height: 70px; resize: vertical; }
     <div class="grab"></div>
     <div class="sheet-head">
       <span></span>
-      <h3 id="setTitle">Ustawienia</h3>
+      <h3 id="setTitle">Ustawienia · wersja 2</h3>
       <button type="button" class="link-btn" data-close>Gotowe</button>
     </div>
 
@@ -313,16 +313,15 @@ textarea.input { min-height: 70px; resize: vertical; }
     </div>
 
     <div class="box">
-      <h4>Jak zbudować skrót (raz, ok. 10 minut)</h4>
+      <h4>Budowa skrótu (7 czynności)</h4>
       <ol>
-        <li>Otwórz <strong>Skróty</strong>, dotknij <strong>+</strong>, nazwij skrót dokładnie jak powyżej.</li>
-        <li>Dodaj akcję <strong>Pobierz słownik z</strong> i wskaż <em>Dane wejściowe skrótu</em>.</li>
-        <li>Dodaj <strong>Pobierz wartość słownika</strong>, klucz <code>zadania</code>.</li>
-        <li>Dodaj <strong>Powtórz z każdym</strong> dla tej wartości. Wewnątrz pętli:</li>
-        <li>Trzy razy <strong>Pobierz wartość słownika</strong> z <em>Powtórz element</em>: klucze <code>tytul</code>, <code>termin</code>, <code>notatki</code>.</li>
-        <li><strong>Pobierz daty z</strong> wartości <code>termin</code>.</li>
-        <li><strong>Jeżeli</strong> daty <em>mają dowolną wartość</em>: <strong>Dodaj nowe przypomnienie</strong> z tytułem, alertem o dacie i notatką. <strong>W przeciwnym razie</strong>: to samo bez alertu.</li>
-        <li>Na końcu opcjonalnie <strong>Pokaż powiadomienie</strong> „Dodano”. Przy pierwszym uruchomieniu zezwól na dostęp do Przypomnień.</li>
+        <li><strong>Pobierz słownik z</strong> → Dane wejściowe skrótu</li>
+        <li><strong>Pobierz wartość słownika</strong>, klucz <code>tytul</code></li>
+        <li><strong>Pobierz wartość słownika</strong>, klucz <code>termin</code>, słownik: Słownik</li>
+        <li><strong>Pobierz daty z</strong> → wynik kroku 3</li>
+        <li><strong>Jeżeli</strong> Daty ma dowolną wartość</li>
+        <li>w „Jeżeli”: <strong>Dodaj nowe przypomnienie</strong> z tytułem i alertem o dacie</li>
+        <li>w „W przeciwnym razie”: <strong>Dodaj nowe przypomnienie</strong> z samym tytułem</li>
       </ol>
     </div>
 
@@ -516,7 +515,7 @@ textarea.input { min-height: 70px; resize: vertical; }
     const active = tasks.filter((t) => !t.done);
     const unsent = active.filter((t) => !t.sentAt && !t.example);
     $('examplesBar').hidden = !tasks.some((t) => t.example);
-    $('sendBar').hidden = view !== 'active' || unsent.length < 2;
+    $('sendBar').hidden = true;
     $('sendBarText').textContent = `${unsent.length} ${plural(unsent.length, 'zadanie czeka', 'zadania czekają', 'zadań czeka')} na wysłanie do Przypomnień`;
 
     if (view === 'done') {
@@ -557,22 +556,20 @@ textarea.input { min-height: 70px; resize: vertical; }
 
   // ---------- wysyłka do Przypomnień ----------
   function toPayload(t) {
-    const notes = [t.notes, t.cat ? `Kategoria: ${t.cat}` : ''].filter(Boolean).join('\n');
     return {
       tytul: (t.prio ? '!'.repeat(t.prio) + ' ' : '') + t.title,
       termin: t.date ? `${t.date} ${t.time || settings.defaultTime}` : '',
-      notatki: notes,
     };
   }
   function sendToReminders(list) {
     if (!list.length) return;
-    const payload = JSON.stringify({ zadania: list.map(toPayload) });
+    const payload = JSON.stringify(toPayload(list[0]));
     const url = `shortcuts://run-shortcut?name=${encodeURIComponent(settings.shortcut)}&input=text&text=${encodeURIComponent(payload)}`;
     const now = Date.now();
     const prev = list.map((t) => [t, t.sentAt]);
     list.forEach((t) => { if (!t.example) t.sentAt = now; });
     save(); render();
-    toast(list.length === 1 ? 'Przekazano do Skrótów' : `Przekazano ${list.length} zadań do Skrótów`, () => {
+    toast('Przekazano do Skrótów', () => {
       prev.forEach(([t, s]) => { t.sentAt = s; }); save(); render();
     });
     window.location.href = url;
@@ -751,7 +748,7 @@ textarea.input { min-height: 70px; resize: vertical; }
   $('s-deftime').addEventListener('change', () => { settings.defaultTime = $('s-deftime').value || '09:00'; saveSettings(); });
   $('testShortcut').onclick = () => {
     const d = addDays(today0(), 1);
-    const payload = JSON.stringify({ zadania: [{ tytul: 'Test ze Skrzynki zadań', termin: `${iso(d)} ${settings.defaultTime}`, notatki: 'Możesz to usunąć.' }] });
+    const payload = JSON.stringify({ tytul: 'Test ze Skrzynki zadań', termin: `${iso(d)} ${settings.defaultTime}` });
     window.location.href = `shortcuts://run-shortcut?name=${encodeURIComponent(settings.shortcut)}&input=text&text=${encodeURIComponent(payload)}`;
   };
   $('copyBackup').onclick = () => {
