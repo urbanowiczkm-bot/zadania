@@ -295,7 +295,7 @@ textarea.input { min-height: 70px; resize: vertical; }
     <div class="grab"></div>
     <div class="sheet-head">
       <span></span>
-      <h3 id="setTitle">Ustawienia · wersja 2</h3>
+      <h3 id="setTitle">Ustawienia · wersja 3</h3>
       <button type="button" class="link-btn" data-close>Gotowe</button>
     </div>
 
@@ -308,6 +308,15 @@ textarea.input { min-height: 70px; resize: vertical; }
       <div>
         <p class="field-label">Godzina przypomnienia, gdy podasz tylko datę</p>
         <input class="input" type="time" id="s-deftime">
+      </div>
+      <div>
+        <p class="field-label">Format terminu</p>
+        <select class="input" id="s-fmt">
+          <option value="pl">A: 10.11.2026 09:00</option>
+          <option value="slowny">B: 10 listopada 2026 09:00</option>
+          <option value="iso">C: 2026-11-10T09:00:00+01:00</option>
+          <option value="stary">D: 2026-11-10 09:00 (pierwotny)</option>
+        </select>
       </div>
       <button type="button" class="btn btn-ghost" id="testShortcut">Wyślij zadanie testowe</button>
     </div>
@@ -358,7 +367,22 @@ textarea.input { min-height: 70px; resize: vertical; }
   // ---------- stan ----------
   const firstRun = load(KEY, null) === null;
   let tasks = load(KEY, []);
-  let settings = Object.assign({ shortcut: 'Dodaj do Przypomnień', defaultTime: '09:00' }, load(SKEY, {}));
+  let settings = Object.assign({ shortcut: 'Dodaj do Przypomnień', defaultTime: '09:00', fmt: 'pl' }, load(SKEY, {}));
+  const MONTHS_GEN = ['stycznia','lutego','marca','kwietnia','maja','czerwca','lipca','sierpnia','września','października','listopada','grudnia'];
+  function formatTermin(dateIso, time) {
+    const [y, m, d] = dateIso.split('-').map(Number);
+    const [h, mi] = time.split(':').map(Number);
+    switch (settings.fmt) {
+      case 'slowny': return `${d} ${MONTHS_GEN[m - 1]} ${y} ${pad(h)}:${pad(mi)}`;
+      case 'iso': {
+        const off = -new Date(y, m - 1, d, h, mi).getTimezoneOffset();
+        const sign = off >= 0 ? '+' : '-';
+        return `${dateIso}T${pad(h)}:${pad(mi)}:00${sign}${pad(Math.floor(Math.abs(off) / 60))}:${pad(Math.abs(off) % 60)}`;
+      }
+      case 'stary': return `${dateIso} ${pad(h)}:${pad(mi)}`;
+      default: return `${pad(d)}.${pad(m)}.${y} ${pad(h)}:${pad(mi)}`;
+    }
+  }
   let view = 'active';
   let editingId = null;
 
@@ -558,7 +582,7 @@ textarea.input { min-height: 70px; resize: vertical; }
   function toPayload(t) {
     return {
       tytul: (t.prio ? '!'.repeat(t.prio) + ' ' : '') + t.title,
-      termin: t.date ? `${t.date} ${t.time || settings.defaultTime}` : '',
+      termin: t.date ? formatTermin(t.date, t.time || settings.defaultTime) : '',
     };
   }
   function sendToReminders(list) {
@@ -742,13 +766,15 @@ textarea.input { min-height: 70px; resize: vertical; }
   $('openSettings').onclick = () => {
     $('s-shortcut').value = settings.shortcut;
     $('s-deftime').value = settings.defaultTime;
+    $('s-fmt').value = settings.fmt;
     openSheet($('settingsSheet'));
   };
   $('s-shortcut').addEventListener('change', () => { settings.shortcut = $('s-shortcut').value.trim() || 'Dodaj do Przypomnień'; saveSettings(); });
   $('s-deftime').addEventListener('change', () => { settings.defaultTime = $('s-deftime').value || '09:00'; saveSettings(); });
+  $('s-fmt').addEventListener('change', () => { settings.fmt = $('s-fmt').value; saveSettings(); });
   $('testShortcut').onclick = () => {
     const d = addDays(today0(), 1);
-    const payload = JSON.stringify({ tytul: 'Test ze Skrzynki zadań', termin: `${iso(d)} ${settings.defaultTime}` });
+    const payload = JSON.stringify({ tytul: 'Test ze Skrzynki zadań (' + settings.fmt + ')', termin: formatTermin(iso(d), settings.defaultTime) });
     window.location.href = `shortcuts://run-shortcut?name=${encodeURIComponent(settings.shortcut)}&input=text&text=${encodeURIComponent(payload)}`;
   };
   $('copyBackup').onclick = () => {
