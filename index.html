@@ -161,6 +161,19 @@ textarea.input { min-height: 70px; resize: vertical; }
 .seg label:has(input:checked) { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
 .seg label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: -2px; }
 
+.bell-toggle { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; border: 1px solid var(--line); background: var(--bg); border-radius: 14px; padding: 12px 14px; }
+.bell-ic { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; background: var(--surface); color: var(--muted); flex: none; }
+.bell-ic svg { width: 20px; height: 20px; }
+.bell-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.bell-txt strong { font-size: 15px; }
+.bell-txt span { font-size: 13px; color: var(--muted); }
+.switch { width: 46px; height: 28px; border-radius: 999px; background: var(--line); position: relative; flex: none; transition: background .15s; }
+.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: var(--surface); box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .15s; }
+.bell-toggle[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.bell-toggle[aria-pressed="true"] .bell-ic { background: var(--accent); color: var(--surface); }
+.bell-toggle[aria-pressed="true"] .switch { background: var(--accent); }
+.bell-toggle[aria-pressed="true"] .switch::after { transform: translateX(18px); }
+@media (prefers-reduced-motion: reduce) { .switch, .switch::after { transition: none; } }
 .actions { display: flex; flex-direction: column; gap: 8px; }
 .btn { border: 0; border-radius: 14px; padding: 14px; font-weight: 700; font-size: 16px; }
 .btn-primary { background: var(--accent); color: var(--surface); }
@@ -281,9 +294,14 @@ textarea.input { min-height: 70px; resize: vertical; }
       </div>
     </div>
 
+    <button type="button" class="bell-toggle" id="bellToggle" aria-pressed="false">
+      <span class="bell-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span>
+      <span class="bell-txt"><strong id="bellTitle">Bez przypomnienia</strong><span id="bellSub">Zadanie zostanie tylko na liście</span></span>
+      <span class="switch" aria-hidden="true"></span>
+    </button>
+
     <div class="actions">
-      <button type="button" class="btn btn-primary" id="saveSend">Zapisz i wyślij do Przypomnień</button>
-      <button type="submit" class="btn btn-ghost">Tylko zapisz</button>
+      <button type="submit" class="btn btn-primary" id="saveBtn">Zapisz</button>
       <button type="button" class="btn btn-danger" id="deleteBtn" hidden>Usuń zadanie</button>
     </div>
   </form>
@@ -295,7 +313,7 @@ textarea.input { min-height: 70px; resize: vertical; }
     <div class="grab"></div>
     <div class="sheet-head">
       <span></span>
-      <h3 id="setTitle">Ustawienia · wersja 3</h3>
+      <h3 id="setTitle">Ustawienia · wersja 4</h3>
       <button type="button" class="link-btn" data-close>Gotowe</button>
     </div>
 
@@ -312,7 +330,7 @@ textarea.input { min-height: 70px; resize: vertical; }
       <div>
         <p class="field-label">Format terminu</p>
         <select class="input" id="s-fmt">
-          <option value="pl">A: 10.11.2026 09:00</option>
+          <option value="pl">A (działa): 10.11.2026 09:00</option>
           <option value="slowny">B: 10 listopada 2026 09:00</option>
           <option value="iso">C: 2026-11-10T09:00:00+01:00</option>
           <option value="stary">D: 2026-11-10 09:00 (pierwotny)</option>
@@ -322,15 +340,17 @@ textarea.input { min-height: 70px; resize: vertical; }
     </div>
 
     <div class="box">
-      <h4>Budowa skrótu (7 czynności)</h4>
+      <h4>Budowa skrótu</h4>
       <ol>
         <li><strong>Pobierz słownik z</strong> → Dane wejściowe skrótu</li>
         <li><strong>Pobierz wartość słownika</strong>, klucz <code>tytul</code></li>
         <li><strong>Pobierz wartość słownika</strong>, klucz <code>termin</code>, słownik: Słownik</li>
         <li><strong>Pobierz daty z</strong> → wynik kroku 3</li>
-        <li><strong>Jeżeli</strong> Daty ma dowolną wartość</li>
-        <li>w „Jeżeli”: <strong>Dodaj nowe przypomnienie</strong> z tytułem i alertem o dacie</li>
-        <li>w „W przeciwnym razie”: <strong>Dodaj nowe przypomnienie</strong> z samym tytułem</li>
+        <li><strong>Jeśli</strong> Daty zawiera dowolną wartość:</li>
+        <li>· <strong>Dodaj przypomnienie</strong>, Alert → Godzina → Daty</li>
+        <li>· <strong>Dostosuj datę</strong>: dodaj 30 minut do Daty</li>
+        <li>· <strong>Dodaj nowe wydarzenie</strong>: tytuł, start Daty, koniec Skorygowana data</li>
+        <li><strong>W przeciwnym razie</strong>: Dodaj przypomnienie bez alertu</li>
       </ol>
     </div>
 
@@ -520,12 +540,12 @@ textarea.input { min-height: 70px; resize: vertical; }
     if (when) meta.push(`<span class="when${isLate(t) ? ' late' : ''}">${esc(when)}</span>`);
     if (t.prio) meta.push(`<span class="prio">${'!'.repeat(t.prio)}</span>`);
     if (t.cat) meta.push(`<span>${esc(t.cat)}</span>`);
-    if (t.sentAt) meta.push('<span class="badge sent">w Przypomnieniach</span>');
+    if (t.sentAt) meta.push(`<span class="badge sent">${t.date ? 'Przypomnienia + Kalendarz' : 'w Przypomnieniach'}</span>`);
     if (t.example) meta.push('<span class="badge ex">przykład</span>');
     return `<li class="task${t.done ? ' done' : ''}" data-id="${t.id}">
       <button class="check" data-act="toggle" aria-label="${t.done ? 'Przywróć' : 'Oznacz jako zrobione'}">${ICON_CHECK}</button>
       <button class="body" data-act="edit"><p class="t-title">${esc(t.title)}</p>${meta.length ? `<p class="meta">${meta.join('')}</p>` : ''}</button>
-      ${t.done ? '' : `<button class="send${t.sentAt ? ' is-sent' : ''}" data-act="send" aria-label="Wyślij do Przypomnień">${t.sentAt ? ICON_SENT : ICON_SEND}</button>`}
+      ${t.done ? '' : `<button class="send${t.sentAt ? ' is-sent' : ''}" data-act="send" aria-label="Przypomnij: Przypomnienia i Kalendarz">${t.sentAt ? ICON_SENT : ICON_SEND}</button>`}
     </li>`;
   }
 
@@ -614,6 +634,7 @@ textarea.input { min-height: 70px; resize: vertical; }
     } else if (act === 'edit') {
       openTaskSheet(t);
     } else if (act === 'send') {
+      t.bell = true;
       sendToReminders([t]);
     }
   });
@@ -650,7 +671,7 @@ textarea.input { min-height: 70px; resize: vertical; }
     $('f-notes').value = t ? t.notes || '' : '';
     setPrio(t ? t.prio || 0 : 0);
     $('deleteBtn').hidden = !t;
-    $('saveSend').textContent = t && t.sentAt ? 'Zapisz i wyślij ponownie' : 'Zapisz i wyślij do Przypomnień';
+    setBell(!!(t && t.bell && !t.sentAt));
     const cats = [...new Set(tasks.map((x) => x.cat).filter(Boolean))];
     $('catList').innerHTML = cats.map((c) => `<option value="${esc(c)}">`).join('');
     updateChips(); detect();
@@ -695,7 +716,7 @@ textarea.input { min-height: 70px; resize: vertical; }
     updateChips(); detect();
   }
   $('f-title').addEventListener('input', detect);
-  $('applyDetect').onclick = applyDetected;
+  $('applyDetect').onclick = () => { applyDetected(); updateBellText(); };
 
   // zapis
   function saveTask() {
@@ -717,8 +738,33 @@ textarea.input { min-height: 70px; resize: vertical; }
     save(); closeSheet(); view = 'active'; render();
     return t;
   }
-  $('taskForm').addEventListener('submit', (e) => { e.preventDefault(); const t = saveTask(); if (t) toast('Zapisano'); });
-  $('saveSend').onclick = () => { const t = saveTask(); if (t) sendToReminders([t]); };
+  let bellOn = false;
+  function setBell(on) {
+    bellOn = on;
+    $('bellToggle').setAttribute('aria-pressed', on);
+    updateBellText();
+  }
+  function updateBellText() {
+    if (!bellOn) {
+      $('bellTitle').textContent = 'Bez przypomnienia';
+      $('bellSub').textContent = 'Zadanie zostanie tylko na liście';
+    } else {
+      $('bellTitle').textContent = 'Przypomnij';
+      $('bellSub').textContent = $('f-date').value ? 'Wyślę do Przypomnień i Kalendarza' : 'Bez daty trafi tylko do Przypomnień';
+    }
+    $('saveBtn').textContent = bellOn ? 'Zapisz i przypomnij' : 'Zapisz';
+  }
+  $('bellToggle').onclick = () => setBell(!bellOn);
+  $('f-date').addEventListener('change', updateBellText);
+  $('dateChips').addEventListener('click', () => setTimeout(updateBellText, 0));
+  $('taskForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const send = bellOn;
+    const t = saveTask();
+    if (!t) return;
+    t.bell = send; save();
+    if (send) sendToReminders([t]); else { render(); toast('Zapisano na liście'); }
+  });
   $('deleteBtn').onclick = () => {
     const idx = tasks.findIndex((x) => x.id === editingId);
     if (idx < 0) return;
